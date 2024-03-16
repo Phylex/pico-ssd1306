@@ -238,6 +238,20 @@ void ssd1306_clear_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, 
 void ssd1306_draw_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
 /**
+	@brief Blit a sprite into the display buffer
+
+	@param[in] disp : instance of display with display buffer
+	@param[in] sprite : the buffer containing the sprite (padded if necessary)
+	@param[in] sprite_height : the height of the sprite in pixels
+	@param[in] sprite_width : the width of the sprite in pixels (number of columns)
+	@param[in] start_col : the column on the display containing the top left corner of the sprite
+	@param[in] start_row : the row containing the top left corner of the sprite
+ */
+void ssd1306_blit(ssd1306_t *disp, const char* sprite,
+		  uint32_t sprite_height, uint32_t sprite_width,
+		  uint32_t start_col, uint32_t start_row);
+
+/**
 	@brief draw empty square at given position with given size
 
 	@param[in] p : instance of display

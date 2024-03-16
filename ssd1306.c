@@ -224,6 +224,50 @@ void ssd1306_draw_line(ssd1306_t *p, int32_t x1, int32_t y1, int32_t x2, int32_t
     }
 }
 
+// assumes the bytes are organized in horizontal bars (called pages) 8 pixels high (as one byte per column of the bar and then the subsequent
+// byte in the memmory fills  occupies the next column but all the same rows as the previous byte)
+// The sprite is assumed to be in the same paged layout with a minimum of 8 bits height (padded if needed).
+void ssd1306_blit(ssd1306_t *disp, const char *sprite, uint32_t sprite_height, uint32_t sprite_width, uint32_t start_col, uint32_t start_row) {
+    uint8_t top_page = start_row >> 3;
+    uint8_t top_row_in_page = start_row % 8;
+    uint8_t sprite_dangling_bits = sprite_height % 8;
+    uint8_t full_sprite_pages = (sprite_height >> 3);
+    // handle the full rows in the sprite
+    for (int i = 0; i < full_sprite_pages; i ++) {
+        uint32_t displ_buffer_addr = (top_page + i) * disp->width + start_col;
+        for (int j = 0; j < sprite_width; j++) {
+            uint32_t sprite_addr = i * sprite_width + j;
+            if (top_row_in_page > 0) {
+                disp->buffer[displ_buffer_addr+j] &= ~(0xff << top_row_in_page);
+                disp->buffer[displ_buffer_addr+j] |= sprite[sprite_addr] << top_row_in_page;
+                disp->buffer[displ_buffer_addr+j+disp->width] &= ~(0xff >> (8 - top_row_in_page));
+                disp->buffer[displ_buffer_addr+j+disp->width] |= sprite[sprite_addr] >> ( 8 - top_row_in_page);
+            } else {
+                disp->buffer[displ_buffer_addr+j] = sprite[sprite_addr];
+            }
+        }
+    }
+    // handle a possibly dangling row
+    if (sprite_dangling_bits > 0) {
+        uint32_t displ_buffer_start_addr = (top_page + full_sprite_pages) * disp->width + start_col;
+        uint32_t sprite_start_addr = full_sprite_pages * sprite_width;
+        if (sprite_dangling_bits > (8 - top_row_in_page)) {
+            for (int i = 0; i<sprite_width; i++) {
+               disp->buffer[displ_buffer_start_addr+i] &= ~(0xff >> (8-top_row_in_page));
+               disp->buffer[displ_buffer_start_addr+i] |= sprite[sprite_start_addr+i] & (0xff >> (8-top_row_in_page));
+               disp->buffer[displ_buffer_start_addr+i+disp->width] &= ~(0xff >> (sprite_dangling_bits -  8 + top_row_in_page));
+               disp->buffer[displ_buffer_start_addr+i+disp->width] |= sprite[sprite_start_addr+i+sprite_width] >> (sprite_dangling_bits -  8 + top_row_in_page);
+            }
+        } else {
+            for (int i = 0; i<sprite_width; i++) {
+               disp->buffer[displ_buffer_start_addr+i] &= ~(0xff >> (8-sprite_dangling_bits));
+               disp->buffer[displ_buffer_start_addr+i] |= sprite[sprite_start_addr+i] & (0xff >> (8-sprite_dangling_bits));
+            }
+        }
+    }
+
+}
+
 void ssd1306_clear_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
     for(uint32_t i=0; i<width; ++i)
         for(uint32_t j=0; j<height; ++j)
