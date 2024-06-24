@@ -63,12 +63,12 @@ typedef enum {
  * at compile time. This allows omitting the code to define the variables at runtime
  * as all the details are known at compile time
  */
-#define CREATE_DISPLAY(width_, height_, I2C, address_, dma_channel_, external_vcc_, id) \
-    uint8_t display_buffer_ ## id[width_*height_];\
-    uint16_t dma_tx_bufferbuffer_ ## id[width_*height_+1];\
+#define CREATE_DISPLAY(width_, height_, I2C, address_, dma_channel_, external_vcc_, varname) \
+    uint8_t display_buffer_ ## varname[width_*height_/8];\
+    uint16_t dma_tx_bufferbuffer_ ## varname[(width_*height_/8)+1];\
     ssd1306_t display_ ## id = {\
-	.dma_tx_buffer = dma_tx_bufferbuffer_ ## id,\
-	.buffer = display_buffer_ ## id,\
+	.dma_tx_buffer = dma_tx_bufferbuffer_ ## varname,\
+	.buffer = display_buffer_ ## varname,\
 	.bufsize = width_ * height_ / 8,\
 	.width = width_,\
 	.height = height_,\
@@ -128,6 +128,7 @@ bool ssd1306_init(ssd1306_t *p);
 bool ssd1306_init(ssd1306_t *p, uint16_t width, uint16_t height, uint8_t address, i2c_inst_t *i2c_instance);
 #endif
 
+
 /**
 *	@brief deinitialize display
 *
@@ -151,6 +152,19 @@ void ssd1306_poweroff(ssd1306_t *p);
 
 */
 void ssd1306_poweron(ssd1306_t *p);
+/**
+	@brief Blit a sprite into the display buffer
+
+	@param[in] disp : instance of display with display buffer
+	@param[in] sprite : the buffer containing the sprite (padded if necessary)
+	@param[in] sprite_height : the height of the sprite in pixels
+	@param[in] sprite_width : the width of the sprite in pixels (number of columns)
+	@param[in] start_col : the column on the display containing the top left corner of the sprite
+	@param[in] start_row : the row containing the top left corner of the sprite
+ */
+void ssd1306_blit(ssd1306_t *disp, const char* sprite,
+		  uint32_t sprite_height, uint32_t sprite_width,
+		  uint32_t start_col, uint32_t start_row);
 
 /**
 	@brief set contrast of display
@@ -202,10 +216,10 @@ void ssd1306_clear_pixel(ssd1306_t *p, uint32_t x, uint32_t y);
 	@param[in] x : x position
 	@param[in] y : y position
 */
-void ssd1306_draw_pixel(ssd1306_t *p, uint32_t x, uint32_t y);
+void ssd1306_set_pixel(ssd1306_t *p, uint32_t x, uint32_t y);
 
 /**
-	@brief draw line on buffer
+	@brief draw pixel on buffer
 
 	@param[in] p : instance of display
 	@param[in] x1 : x position of starting point
@@ -214,109 +228,4 @@ void ssd1306_draw_pixel(ssd1306_t *p, uint32_t x, uint32_t y);
 	@param[in] y2 : y position of end point
 */
 void ssd1306_draw_line(ssd1306_t *p, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
-
-/**
-	@brief clear square at given position with given size
-
-	@param[in] p : instance of display
-	@param[in] x : x position of starting point
-	@param[in] y : y position of starting point
-	@param[in] width : width of square
-	@param[in] height : height of square
-*/
-void ssd1306_clear_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-
-/**
-	@brief draw filled square at given position with given size
-
-	@param[in] p : instance of display
-	@param[in] x : x position of starting point
-	@param[in] y : y position of starting point
-	@param[in] width : width of square
-	@param[in] height : height of square
-*/
-void ssd1306_draw_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-
-/**
-	@brief Blit a sprite into the display buffer
-
-	@param[in] disp : instance of display with display buffer
-	@param[in] sprite : the buffer containing the sprite (padded if necessary)
-	@param[in] sprite_height : the height of the sprite in pixels
-	@param[in] sprite_width : the width of the sprite in pixels (number of columns)
-	@param[in] start_col : the column on the display containing the top left corner of the sprite
-	@param[in] start_row : the row containing the top left corner of the sprite
- */
-void ssd1306_blit(ssd1306_t *disp, const char* sprite,
-		  uint32_t sprite_height, uint32_t sprite_width,
-		  uint32_t start_col, uint32_t start_row);
-
-/**
-	@brief draw empty square at given position with given size
-
-	@param[in] p : instance of display
-	@param[in] x : x position of starting point
-	@param[in] y : y position of starting point
-	@param[in] width : width of square
-	@param[in] height : height of square
-*/
-void ssd1306_draw_empty_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height);
-
-/**
-	@brief draw monochrome bitmap with offset
-
-	@param[in] p : instance of display
-	@param[in] data : image data (whole file)
-	@param[in] size : size of image data in bytes
-	@param[in] x_offset : offset of horizontal coordinate
-	@param[in] y_offset : offset of vertical coordinate
-*/
-void ssd1306_bmp_show_image_with_offset(ssd1306_t *p, const uint8_t *data, const long size, uint32_t x_offset, uint32_t y_offset);
-
-/**
-	@brief draw monochrome bitmap
-
-	@param[in] p : instance of display
-	@param[in] data : image data (whole file)
-	@param[in] size : size of image data in bytes
-*/
-void ssd1306_bmp_show_image(ssd1306_t *p, const uint8_t *data, const long size);
-
-/**
-	@brief draw char with given font
-
-	@param[in] p : instance of display
-	@param[in] x : x starting position of char
-	@param[in] y : y starting position of char
-	@param[in] scale : scale font to n times of original size (default should be 1)
-	@param[in] font : pointer to font
-	@param[in] c : character to draw
-*/
-void ssd1306_draw_char_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, const uint8_t *font, char c);
-
-/**
-	@brief draw string with given font
-
-	@param[in] p : instance of display
-	@param[in] x : x starting position of text
-	@param[in] y : y starting position of text
-	@param[in] scale : scale font to n times of original size (default should be 1)
-	@param[in] font : pointer to font
-	@param[in] s : text to draw
-*/
-void ssd1306_draw_string_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, const uint8_t *font, const char *s );
-
-/**
-	@brief Blit a sprite into the display buffer
-
-	@param[in] disp : instance of display with display buffer
-	@param[in] sprite : the buffer containing the sprite (padded if necessary)
-	@param[in] sprite_height : the height of the sprite in pixels
-	@param[in] sprite_width : the width of the sprite in pixels (number of columns)
-	@param[in] start_col : the column on the display containing the top left corner of the sprite
-	@param[in] start_row : the row containing the top left corner of the sprite
- */
-void ssd1306_blit(ssd1306_t *disp, const char* sprite,
-		  uint32_t sprite_height, uint32_t sprite_width,
-		  uint32_t start_col, uint32_t start_row);
 #endif
