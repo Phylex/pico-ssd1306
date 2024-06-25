@@ -31,8 +31,8 @@ SOFTWARE.
 #ifndef _inc_ssd1306
 #define _inc_ssd1306
 #include <stdint.h>
-#include <pico/stdlib.h>
-#include <hardware/i2c.h>
+#include "hardware/i2c.h"
+#include "hardware/i2c.h"
 
 /**
 *	@brief defines commands used in ssd1306
@@ -63,12 +63,12 @@ typedef enum {
  * at compile time. This allows omitting the code to define the variables at runtime
  * as all the details are known at compile time
  */
-#define CREATE_DISPLAY(width_, height_, I2C, address_, dma_channel_, external_vcc_, varname) \
-    uint8_t display_buffer_ ## varname[width_*height_/8];\
-    uint16_t dma_tx_bufferbuffer_ ## varname[(width_*height_/8)+1];\
-    ssd1306_t display_ ## id = {\
-	.dma_tx_buffer = dma_tx_bufferbuffer_ ## varname,\
-	.buffer = display_buffer_ ## varname,\
+#define CREATE_DISPLAY(width_, height_, I2C, address_, dma_channel_, external_vcc_, varname_) \
+    uint8_t display_buffer_ ## varname_[width_*height_/8];\
+    uint16_t dma_tx_bufferbuffer_ ## varname_[(width_*height_/8)+1];\
+    ssd1306_t varname_  = {\
+	.dma_tx_buffer = dma_tx_bufferbuffer_ ## varname_,\
+	.buffer = display_buffer_ ## varname_,\
 	.bufsize = width_ * height_ / 8,\
 	.width = width_,\
 	.height = height_,\
@@ -76,7 +76,7 @@ typedef enum {
 	.address = address_,\
 	.dma_channel = dma_channel_,\
 	.external_vcc = external_vcc_,\
-	.i2c_i = I2C,\
+	.i2c_i = I2C\
     }
 #endif
 
@@ -229,3 +229,7 @@ void ssd1306_set_pixel(ssd1306_t *p, uint32_t x, uint32_t y);
 */
 void ssd1306_draw_line(ssd1306_t *p, int32_t x1, int32_t y1, int32_t x2, int32_t y2);
 #endif
+
+void ssd1306_bmp_show_image(ssd1306_t *p, const uint8_t *data, const long size);
+
+void ssd1306_draw_string_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, const uint8_t *font, const char *s);

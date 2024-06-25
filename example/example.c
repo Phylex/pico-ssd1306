@@ -17,7 +17,7 @@ const uint8_t *fonts[] = {acme_font, bubblesstandard_font, crackers_font, BMSPA_
 
 #define SLEEPTIME 30
 #ifdef SSD1306_USE_DMA
-CREATE_DISPLAY(128, 64, i2c1, 0x3C, 0, 0, 01) ;
+CREATE_DISPLAY(128, 64, i2c1, 0x3C, 0, 0, main_display) ;
 #endif
 
 
@@ -54,13 +54,13 @@ void animation(void) {
     const char *words[]= {"SSD1306", "DISPLAY", "DRIVER"};
 
 #ifdef SSD1306_USE_DMA
-    ssd1306_init(&display_01);        
+    ssd1306_init(&main_display);        
 #else
     ssd1306_t display_01;
     display_01.external_vcc=false;
     ssd1306_init(&display_01, 128, 64, 0x3C, i2c1);
 #endif
-    ssd1306_clear(&display_01);
+    ssd1306_clear(&main_display);
 
     printf("ANIMATION!\n");
 
@@ -68,33 +68,33 @@ void animation(void) {
 
     for(;;) {
         for(int y=0; y<31; ++y) {
-            ssd1306_draw_line(&display_01, 0, y, 127, y);
-            ssd1306_show(&display_01);
+            ssd1306_draw_line(&main_display, 0, y, 127, y);
+            ssd1306_show(&main_display);
             sleep_ms(SLEEPTIME);
-            ssd1306_clear(&display_01);
+            ssd1306_clear(&main_display);
         }
 
         for(int y=0, i=1; y>=0; y+=i) {
-            ssd1306_draw_line(&display_01, 0, 31-y, 127, 31+y);
-            ssd1306_draw_line(&display_01, 0, 31+y, 127, 31-y);
-            ssd1306_show(&display_01);
+            ssd1306_draw_line(&main_display, 0, 31-y, 127, 31+y);
+            ssd1306_draw_line(&main_display, 0, 31+y, 127, 31-y);
+            ssd1306_show(&main_display);
             sleep_ms(SLEEPTIME);
-            ssd1306_clear(&display_01);
+            ssd1306_clear(&main_display);
             if(y==32) i=-1;
         }
 
         for(int i=0; i<sizeof(words)/sizeof(char *); ++i) {
-            ssd1306_draw_string(&display_01, 8, 24, 2, words[i]);
-            ssd1306_show(&display_01);
+            ssd1306_draw_string(&main_display, 8, 24, 2, words[i]);
+            ssd1306_show(&main_display);
             sleep_ms(800);
-            ssd1306_clear(&display_01);
+            ssd1306_clear(&main_display);
         }
 
         for(int y=31; y<63; ++y) {
-            ssd1306_draw_line(&display_01, 0, y, 127, y);
-            ssd1306_show(&display_01);
+            ssd1306_draw_line(&main_display, 0, y, 127, y);
+            ssd1306_show(&main_display);
             sleep_ms(SLEEPTIME);
-            ssd1306_clear(&display_01);
+            ssd1306_clear(&main_display);
         }
 
         for(size_t font_i=0; font_i<sizeof(fonts)/sizeof(fonts[0]); ++font_i) {
@@ -108,15 +108,15 @@ void animation(void) {
                 }
                 buf[i]=0;
 
-                ssd1306_draw_string_with_font(&display_01, 8, 24, 2, fonts[font_i], buf);
-                ssd1306_show(&display_01);
+                ssd1306_draw_string_with_font(&main_display, 8, 24, 2, fonts[font_i], buf);
+                ssd1306_show(&main_display);
                 sleep_ms(800);
-                ssd1306_clear(&display_01);
+                ssd1306_clear(&main_display);
             }
         }
 
-        ssd1306_bmp_show_image(&display_01, image_data, image_size);
-        ssd1306_show(&display_01);
+        ssd1306_bmp_show_image(&main_display, image_data, image_size);
+        ssd1306_show(&main_display);
         sleep_ms(2000);
     }
 }

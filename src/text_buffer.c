@@ -1,6 +1,6 @@
 #include "text_buffer.h"
 
-void clear(text_buffer* tbuf) {
+void text_buffer_clear(text_buffer* tbuf) {
   tbuf->filled = 0;
   tbuf->start = 0;
 };
@@ -28,7 +28,7 @@ void append_char(text_buffer *tb, char c) {
 }
 
 void text_buffer_process_char(text_buffer *tb, char c) {
-  if (c == 127 && tb->filled > 0) { // backspace
+  if (c == '\b' && tb->filled > 0) { // backspace
       tb->filled --; 
       return;
   }

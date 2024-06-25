@@ -12,9 +12,9 @@ void render_textbox(ssd1306_t *disp, ssd1306_textbox *tbw) {
     uint16_t tbox_col = 0;
     uint16_t tbox_line = 0;
     // this guarantees that there
-    size_t txt_idx = get_start_of_nth_line_from_end(tbw, lines_in_textbox);
+    size_t txt_idx = get_start_of_nth_line_from_end(&tbw->tb, lines_in_textbox);
     while (txt_idx < tbw->tb.filled) {
-        char c = tbw->tb.buffer[(tbw->tb->start + txt_idx) % TEXT_BUF_LEN];
+        char c = tbw->tb.buffer[(tbw->tb.start + txt_idx) % TEXT_BUF_LEN];
         txt_idx ++;
         if ( c == '\n' || c == 13) {
             tbox_col=0;
@@ -28,10 +28,16 @@ void render_textbox(ssd1306_t *disp, ssd1306_textbox *tbw) {
             }
         }
     }
+    tbw->updated = false;
 }
 
 // have the text widget process a character
-void process_char(ssd1306_textbox *tbw, char c) {
-    text_buffer_process_char(&tbw->tb, c);
-    tbw->updated = true;
+void process_char(ssd1306_textbox *text_widget, char c) {
+    text_buffer_process_char(&text_widget->tb, c);
+    text_widget->updated = true;
+}
+
+void clear_textbox(ssd1306_textbox *text_widget) {
+    text_buffer_clear(&text_widget->tb);
+    text_widget->updated = true;
 }

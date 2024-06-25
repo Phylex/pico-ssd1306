@@ -23,12 +23,11 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 */
 
-#include <pico/stdlib.h>
 #include <hardware/i2c.h>
 #include <pico/binary_info.h>
-#include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <pico/stdlib.h>
 
 #include "ssd1306.h"
 #ifdef SSD1306_USE_DMA
@@ -305,7 +304,7 @@ void ssd1306_clear_pixel(ssd1306_t *p, uint32_t x, uint32_t y) {
     p->buffer[x+p->width*(y>>3)]&=~(0x1<<(y&0x07));
 }
 
-void ssd1306_set_pixel(ssd1306_t *p, uint32_t x, uint32_t y) {
+void ssd1306_draw_pixel(ssd1306_t *p, uint32_t x, uint32_t y) {
     if(x>=p->width || y>=p->height) return;
 
     p->buffer[x+p->width*(y>>3)]|=0x1<<(y&0x07); // y>>3==y/8 && y&0x7==y%8
@@ -333,6 +332,109 @@ void ssd1306_draw_line(ssd1306_t *p, int32_t x1, int32_t y1, int32_t x2, int32_t
     }
 }
 
+void ssd1306_draw_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+    for(uint32_t i=0; i<width; ++i)
+        for(uint32_t j=0; j<height; ++j)
+            ssd1306_draw_pixel(p, x+i, y+j);
+
+}
+
+void ssd1306_draw_empty_square(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t width, uint32_t height) {
+    ssd1306_draw_line(p, x, y, x+width, y);
+    ssd1306_draw_line(p, x, y+height, x+width, y+height);
+    ssd1306_draw_line(p, x, y, x, y+height);
+    ssd1306_draw_line(p, x+width, y, x+width, y+height);
+}
+
+void ssd1306_draw_char_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, const uint8_t *font, char c) {
+    if(c<font[3]||c>font[4])
+        return;
+
+    uint32_t parts_per_line=(font[0]>>3)+((font[0]&7)>0);
+    for(uint8_t w=0; w<font[1]; ++w) { // width
+        uint32_t pp=(c-font[3])*font[1]*parts_per_line+w*parts_per_line+5;
+        for(uint32_t lp=0; lp<parts_per_line; ++lp) {
+            uint8_t line=font[pp];
+
+            for(int8_t j=0; j<8; ++j, line>>=1) {
+                if(line & 1)
+                    ssd1306_draw_square(p, x+w*scale, y+((lp<<3)+j)*scale, scale, scale);
+            }
+
+            ++pp;
+        }
+    }
+}
+
+void ssd1306_draw_string_with_font(ssd1306_t *p, uint32_t x, uint32_t y, uint32_t scale, const uint8_t *font, const char *s) {
+    for(int32_t x_n=x; *s; x_n+=(font[1]+font[2])*scale) {
+        ssd1306_draw_char_with_font(p, x_n, y, scale, font, *(s++));
+    }
+}
+
+static inline uint32_t ssd1306_bmp_get_val(const uint8_t *data, const size_t offset, uint8_t size) {
+    switch(size) {
+    case 1:
+        return data[offset];
+    case 2:
+        return data[offset]|(data[offset+1]<<8);
+    case 4:
+        return data[offset]|(data[offset+1]<<8)|(data[offset+2]<<16)|(data[offset+3]<<24);
+    default:
+        __builtin_unreachable();
+    }
+    __builtin_unreachable();
+}
+
+void ssd1306_bmp_show_image_with_offset(ssd1306_t *p, const uint8_t *data, const long size, uint32_t x_offset, uint32_t y_offset) {
+    if(size<54) // data smaller than header
+        return;
+
+    const uint32_t bfOffBits=ssd1306_bmp_get_val(data, 10, 4);
+    const uint32_t biSize=ssd1306_bmp_get_val(data, 14, 4);
+    const int32_t biWidth=(int32_t) ssd1306_bmp_get_val(data, 18, 4);
+    const int32_t biHeight=(int32_t) ssd1306_bmp_get_val(data, 22, 4);
+    const uint16_t biBitCount=(uint16_t) ssd1306_bmp_get_val(data, 28, 2);
+    const uint32_t biCompression=ssd1306_bmp_get_val(data, 30, 4);
+
+    if(biBitCount!=1) // image not monochrome
+        return;
+
+    if(biCompression!=0) // image compressed
+        return;
+
+    const int table_start=14+biSize;
+    uint8_t color_val;
+
+    for(uint8_t i=0; i<2; ++i) {
+        if(!((data[table_start+i*4]<<16)|(data[table_start+i*4+1]<<8)|data[table_start+i*4+2])) {
+            color_val=i;
+            break;
+        }
+    }
+
+    uint32_t bytes_per_line=(biWidth/8)+(biWidth&7?1:0);
+    if(bytes_per_line&3)
+        bytes_per_line=(bytes_per_line^(bytes_per_line&3))+4;
+
+    const uint8_t *img_data=data+bfOffBits;
+
+    int step=biHeight>0?-1:1;
+    int border=biHeight>0?-1:biHeight;
+
+    for(uint32_t y=biHeight>0?biHeight-1:0; y!=border; y+=step) {
+        for(uint32_t x=0; x<biWidth; ++x) {
+            if(((img_data[x>>3]>>(7-(x&7)))&1)==color_val)
+                ssd1306_draw_pixel(p, x_offset+x, y_offset+y);
+        }
+        img_data+=bytes_per_line;
+    }
+}
+
+void ssd1306_bmp_show_image(ssd1306_t *p, const uint8_t *data, const long size) {
+    ssd1306_bmp_show_image_with_offset(p, data, size, 0, 0);
+}
+
 #ifdef SSD1306_USE_DMA
 void copy_to_dma_tx(ssd1306_t *disp) {
     disp->dma_tx_buffer[0] = 1u << I2C_IC_DATA_CMD_RESTART_LSB | 0x0040;
@@ -342,13 +444,12 @@ void copy_to_dma_tx(ssd1306_t *disp) {
     disp->dma_tx_buffer[disp->bufsize] = (1u << I2C_IC_DATA_CMD_STOP_LSB) | disp->buffer[disp->bufsize-1];
 }
 
-void print_content_of_dma_tx(ssd1306_t *disp) {
+void print_content_of_dma_tx(ssd1306_t *disp, void (*sprint_fn)(char *)) {
     char print_buf[10];
-    printf("\r\nPrinting DMA content\r\n\n");
     for (int i = 0; i < disp->height/8; i++) {
         for(int j = 0; j < disp->width; j++) {
             sprintf(print_buf, "%04x", disp->dma_tx_buffer[i*disp->width + j + 1]);
-            uart_puts(uart0, print_buf);
+            sprint_fn(print_buf);
         }
     }
 }
@@ -356,14 +457,14 @@ void print_content_of_dma_tx(ssd1306_t *disp) {
 // we need to load all the data from out actual display buffer into
 // into the buffer that will be read out by the DMA. Then we need to set
 // the appropriate control bits for the top 8 bits of every 16 bit word
-void print_frame_buffer_content(ssd1306_t *disp, void (*sprint_fn)(char *, size_t) {
+void print_out_buffer_content(ssd1306_t *disp, void (*sprint_fn)(char *)) {
     unsigned int pages = disp->height / 8;
     char text_out[10];
     for (int i = 0; i < pages; i++) {
-        printf("\r\n");
+        sprint_fn("\r\n");
         for (int j = 0; j < disp->width; j ++) {
             sprintf(text_out, "%02x", disp->buffer[i*pages + j]);
-            sprint_fn(text_out, strlen(text_out) + 1);
+            sprint_fn(text_out);
         }
     }
 }

@@ -16,7 +16,7 @@ typedef struct {
 size_t get_start_of_nth_line_from_end(text_buffer *tb, uint16_t lines_to_display);
 
 // clear the text buffer
-void clear(text_buffer* tbuf);
+void text_buffer_clear(text_buffer* tbuf);
 
 // processes the char in such a way that only printable characters end up in the text buffer
 void text_buffer_process_char(text_buffer *tb, char c);
